@@ -60,7 +60,7 @@ def get_stat(filename):
     try:
         return os.stat(filename)
     except OSError:
-        return (0, 0, 0, 0, 0, 0, 0, 0)
+        return (0,) * 10
 
 
 def mode_exists(mode):
@@ -102,8 +102,11 @@ def print_long(filenames, file=None):
         size = stat[6]
         mtime = stat[8]
         localtime = time.localtime(mtime)
-        print('%6d %s %2d %02d:%02d %s%s' % (size, MONTH[localtime[1]],
-              localtime[2], localtime[4], localtime[5], filename, mode_str),
+        extra_str = ''
+        if mtime == 0 and mode == 0:
+            extra_str = ' <<< Weird Filename???'
+        print('%6d %s %2d %02d:%02d %s%s%s' % (size, MONTH[localtime[1]],
+              localtime[2], localtime[4], localtime[5], filename, mode_str, extra_str),
               file=file)
 
 
@@ -194,6 +197,9 @@ class Shell(cmd.Cmd):
         self.prompt = self.cur_dir + '> '
 
     def resolve_path(self, path):
+        if len(path) > 1 and path[-1] == '/':
+            # Remove trailing slash from path
+            path = path[:-1]
         if path[0] != '/':
             # Relative path
             if self.cur_dir[-1] == '/':
@@ -278,6 +284,11 @@ class Shell(cmd.Cmd):
         mode = get_mode(dirname)
         if mode_isdir(mode):
             self.cur_dir = dirname
+            if dirname != '/':
+                # Make FatFS's notion of current directory agree with our
+                # own so that other places in the code that call file system
+                # function using relative paths work properly.
+                os.chdir(dirname)
         else:
             self.stderr.write("Directory '%s' does not exist\n" % dirname)
 
@@ -400,6 +411,12 @@ class Shell(cmd.Cmd):
             os.mkdir(target)
         else:
             self.stderr.write('%s already exists.' % target)
+
+    def help_pwd(self):
+        self.stdout.write('Prints the current working directory.\n')
+
+    def do_pwd(self, line):
+        self.stdout.write('{}\n'.format(self.cur_dir))
 
     def help_rm(self):
         self.stdout.write('Delete files and directories.\n')
