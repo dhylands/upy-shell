@@ -148,14 +148,15 @@ def num_devices():
 def is_micropython_usb_device(port):
     """Checks a USB device to see if it looks like a MicroPython device.
     """
-    if type(port).__name__ == 'tuple':
-        # Assume its a port from serial.tools.list_ports.comports()
-        usb_id = port[2].lower()
-    else:
+    if type(port).__name__ == 'Device':
         # Assume its a pyudev.device.Device
-        if port['ID_BUS'] != 'usb' or port['SUBSYSTEM'] != 'tty':
+        if ('ID_BUS' not in port or port['ID_BUS'] != 'usb' or
+            'SUBSYSTEM' not in port or port['SUBSYSTEM'] != 'tty'):
             return False
         usb_id = 'usb vid:pid={}:{}'.format(port['ID_VENDOR_ID'], port['ID_MODEL_ID'])
+    else:
+        # Assume its a port from serial.tools.list_ports.comports()
+        usb_id = port[2].lower()
     # We don't check the last digit of the PID since there are 3 possible
     # values.
     if usb_id.startswith('usb vid:pid=f055:980'):
@@ -205,6 +206,8 @@ def autoconnect_thread(monitor):
                             connected = connect_serial(dev.port, dev.baud, dev.wait)
                         elif is_micropython_usb_device(usb_dev):
                             connected = connect_serial(usb_dev.device_node)
+                        else:
+                            connected = False
                         if connected:
                             break
                         time.sleep(0.25)
