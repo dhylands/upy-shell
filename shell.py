@@ -1,4 +1,23 @@
-"""Implement a simple shell for running on MicroPython."""
+"""Implement a simple shell for running on MicroPython.
+
+MicroPython shell, by Dave Hylands, see:https://github.com/dhylands/upy-shell
+
+This is a very simple command line based shell for MicroPython. It is based on a
+stripped down version of cmd, which can be found here:
+https://github.com/micropython/micropython-lib/tree/master/cmd
+
+I use it by copying cmd.py an shell.py to my sdcard. Then you can do:
+
+import shell
+
+This will automatically run it. If you want to reinvoke it, then use:
+
+shell.run()
+
+The shell has a notion of current directory, and you can use the cd command to move around.
+
+Use help to find out available commands.
+"""
 
 # from __future__ import print_function
 
@@ -291,6 +310,35 @@ class Shell(cmd.Cmd):
                 os.chdir(dirname)
         else:
             self.stderr.write("Directory '%s' does not exist\n" % dirname)
+
+    def help_cp(self):
+        self.stdout.write('Copies contents of source file to a dest file, overwrites dest if exists\n' +
+                            'syntax: cp source dest\n')
+
+    def do_cp(self, line):
+        args = self.line_to_args(line)
+        if len(args)> 2:
+            self.stderr.write("Input error!\nsyntax: cp source dest\n")
+            return 0
+        source = self.resolve_path(args[0])
+        mode = get_mode(source)
+        if not mode_exists(mode):
+            self.stderr.write("Cannot access '%s': No such file\n" % source)
+            return 0
+        if not mode_isfile(mode):
+            self.stderr.write("'%s': is not a file\n" % filename)
+            return 0
+        destination = self.resolve_path(args[1])
+        with open(destination, "wb") as dest_file:
+            try:
+                with open(source, 'rb') as src_file:
+                    while True:
+                        buf = src_file.read(256)
+                        if not buf:
+                            break
+                        dest_file.write(buf)
+            except OSError:
+                self.stderr.write("OSError for '%s'\n" % destination)
 
     def help_echo(self):
         self.stdout.write('Display a line of text.\n')
